@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lista de Tarefas</title>
+  <style>
+    /* Estilos opcionais para melhorar a aparência da lista */
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #app {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 5px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    button {
+      margin-left: 5px;
+      cursor: pointer;
+    }
+    .completed-task {
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Lista de Tarefas</h1>
+
+    <form @submit.prevent="addTask">
+      <input type="text" v-model="newTask" placeholder="Digite uma nova tarefa">
+      <button type="submit">Adicionar</button>
+    </form>
+
+    <h2>Tarefas Não Concluídas</h2>
+    <ul>
+      <li v-for="(task, index) in tasksNotCompleted" :key="index" draggable="true"
+          @dragstart="dragStart(index)" @dragover="dragOver(index)" @drop="drop(index)">
+        <button @click="toggleTaskCompletion(index)">Concluir</button>
+        <span :class="{ 'completed-task': task.completed }">{{ task.description }}</span>
+        <button @click="editTask(index)">Editar</button>
+        <button @click="deleteTask(index)">Excluir</button>
+      </li>
+    </ul>
+
+    <h2>Tarefas Concluídas</h2>
+    <ul>
+      <li v-for="(task, index) in tasksCompleted" :key="index" draggable="true"
+          @dragstart="dragStartCompleted(index)" @dragover="dragOverCompleted(index)" @drop="dropCompleted(index)">
+        <button @click="toggleTaskCompletionCompleted(index)">Desfazer</button>
+        <span :class="{ 'completed-task': task.completed }">{{ task.description }}</span>
+        <button @click="editTaskCompleted(index)">Editar</button>
+        <button @click="deleteTaskCompleted(index)">Excluir</button>
+      </li>
+    </ul>
+    
+    <button @click="undoAllCompletedTasks">Desfazer Todas Concluídas</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <script>
+    const app = new Vue({
+      el: '#app',
+      data: {
+        newTask: '',
+        tasksNotCompleted: [],
+        tasksCompleted: [],
+        editIndex: -1,
+        dragIndex: -1,
+        dragIndexCompleted: -1,
+      },
+      created() {
+        this.loadTasksFromLocalStorage();
+      },
+      methods: {
+        loadTasksFromLocalStorage() {
+          const tasksNotCompleted = JSON.parse(localStorage.getItem('tasksNotCompleted')) || [];
+          const tasksCompleted = JSON.parse(localStorage.getItem('tasksCompleted')) || [];
+          this.tasksNotCompleted = tasksNotCompleted;
+          this.tasksCompleted = tasksCompleted;
+        },
+
+        saveTasksToLocalStorage() {
+          localStorage.setItem('tasksNotCompleted', JSON.stringify(this.tasksNotCompleted));
+          localStorage.setItem('tasksCompleted', JSON.stringify(this.tasksCompleted));
+        },
+
+        addTask() {
+          if (this.newTask.trim() !== '') {
+            if (this.editIndex === -1) {
+              // Adicionar nova tarefa
+              this.tasksNotCompleted.push({ description: this.newTask.trim(), completed: false });
+            } else {
+              // Editar tarefa existente
+              this.tasksNotCompleted[this.editIndex].description = this.newTask.trim();
+              this.editIndex = -1;
+            }
+            this.newTask = '';
+            this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a adição ou edição
+          }
+        },
+
+        editTask(index) {
+          // Carregar a tarefa no formulário para edição
+          this.newTask = this.tasksNotCompleted[index].description;
+          this.editIndex = index;
+        },
+
+        deleteTask(index) {
+          // Deletar tarefa pelo índice
+          this.tasksNotCompleted.splice(index, 1);
+          this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a exclusão
+        },
+
+        dragStart(index) {
+          this.dragIndex = index;
+        },
+
+        dragOver(index) {
+          if (this.dragIndex !== index) {
+            // Trocar as posições das tarefas não concluídas
+            const taskToMove = this.tasksNotCompleted[this.dragIndex];
+            this.tasksNotCompleted.splice(this.dragIndex, 1);
+            this.tasksNotCompleted.splice(index, 0, taskToMove);
+            this.dragIndex = index;
+          }
+        },
+
+        drop(index) {
+          this.dragIndex = -1;
+        },
+
+        toggleTaskCompletion(index) {
+          // Marcar a tarefa como concluída e mover para a lista de tarefas concluídas
+          const task = this.tasksNotCompleted[index];
+          task.completed = true;
+          this.tasksCompleted.push(task);
+          this.tasksNotCompleted.splice(index, 1);
+          this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a mudança
+        },
+
+        toggleTaskCompletionCompleted(index) {
+          // Desmarcar a tarefa como concluída e mover para a lista de tarefas não concluídas
+          const task = this.tasksCompleted[index];
+          task.completed = false;
+          this.tasksNotCompleted.push(task);
+          this.tasksCompleted.splice(index, 1);
+          this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a mudança
+        },
+
+        editTaskCompleted(index) {
+          // Carregar a tarefa no formulário para edição (tarefas concluídas)
+          this.newTask = this.tasksCompleted[index].description;
+          this.editIndex = index;
+        },
+
+        deleteTaskCompleted(index) {
+          // Deletar tarefa pelo índice (tarefas concluídas)
+          this.tasksCompleted.splice(index, 1);
+          this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a exclusão
+        },
+
+        dragStartCompleted(index) {
+          this.dragIndexCompleted = index;
+        },
+
+        dragOverCompleted(index) {
+          if (this.dragIndexCompleted !== index) {
+            // Trocar as posições das tarefas concluídas
+            const taskToMove = this.tasksCompleted[this.dragIndexCompleted];
+            this.tasksCompleted.splice(this.dragIndexCompleted, 1);
+            this.tasksCompleted.splice(index, 0, taskToMove);
+            this.dragIndexCompleted = index;
+          }
+        },
+
+        dropCompleted(index) {
+          this.dragIndexCompleted = -1;
+        },
+
+        undoAllCompletedTasks() {
+          // Desmarcar todas as tarefas concluídas e movê-las para a lista de tarefas não concluídas
+          for (const task of this.tasksCompleted) {
+            task.completed = false;
+            this.tasksNotCompleted.push(task);
+          }
+          this.tasksCompleted = [];
+          this.saveTasksToLocalStorage(); // Salvando as tarefas no localStorage após a mudança
+        },
+      },
+    });
+  </script>
+</body>
+</html>
